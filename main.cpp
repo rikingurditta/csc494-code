@@ -1,34 +1,21 @@
 #include <igl/opengl/glfw/Viewer.h>
 
+#include "get_decimated_sequence.h"
+#include "flow.h"
+#include "reinflate.h"
+
 int main(int argc, char *argv[])
 {
-  // Inline mesh of a cube
-  const Eigen::MatrixXd V= (Eigen::MatrixXd(8,3)<<
-    0.0,0.0,0.0,
-    0.0,0.0,1.0,
-    0.0,1.0,0.0,
-    0.0,1.0,1.0,
-    1.0,0.0,0.0,
-    1.0,0.0,1.0,
-    1.0,1.0,0.0,
-    1.0,1.0,1.0).finished();
-  const Eigen::MatrixXi F = (Eigen::MatrixXi(12,3)<<
-    1,7,5,
-    1,3,7,
-    1,4,3,
-    1,2,4,
-    3,8,7,
-    3,4,8,
-    5,7,8,
-    5,8,6,
-    1,5,6,
-    1,6,2,
-    2,6,8,
-    2,8,4).finished().array()-1;
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
+    igl::readOBJ("../data/stanford-bunny.obj", V, F);
+    std::vector<std::pair<Eigen::MatrixXd, Eigen::MatrixXi>> decimated_meshes;
 
-  // Plot the mesh
-  igl::opengl::glfw::Viewer viewer;
-  viewer.data().set_mesh(V, F);
-  viewer.data().set_face_based(true);
-  viewer.launch();
+    if (not get_decimated_sequence(V, F, 2, F.rows() * 0.01, decimated_meshes))
+        return 1;
+
+    igl::opengl::glfw::Viewer viewer;
+    viewer.data().set_mesh(decimated_meshes[0].first, decimated_meshes[0].second);
+    viewer.data().set_face_based(true);
+    viewer.launch();
 }
