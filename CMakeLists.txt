@@ -10,8 +10,13 @@ include(libigl)
 igl_include(glfw)
 
 # Add your project files
+
+include_directories(${PROJECT_SOURCE_DIR}/TinyAD/include/TinyAD)
+include_directories(${PROJECT_SOURCE_DIR}/include)
+
+file(GLOB TINYAD_FILES ${PROJECT_SOURCE_DIR}/TinyAD/include/TinyAD/*.hh)
 file(GLOB H_FILES ${PROJECT_SOURCE_DIR}/include/*.h)
-file(GLOB TINYAD ${PROJECT_SOURCE_DIR}/TinyAD/include/TinyAD/*.hh)
 file(GLOB SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
-add_executable(${PROJECT_NAME} main.cpp ${TINYAD} ${H_FILES} ${SRC_FILES})
+
+add_executable(${PROJECT_NAME} main.cpp ${TINYAD_FILES} ${H_FILES} ${SRC_FILES})
 target_link_libraries(${PROJECT_NAME} PUBLIC igl::glfw)
