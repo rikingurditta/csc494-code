@@ -1,0 +1,3 @@
+[submodule "TinyAD"]
+	path = TinyAD
+	url = git@github.com:patr-schm/TinyAD.git
