@@ -3,13 +3,13 @@
 
 #include "Eigen/Dense"
 
-void reinflate(Eigen::MatrixXd Vc, Eigen::MatrixXi Fc,
-               Eigen::MatrixXd Vf, Eigen::MatrixXi Ff,
+void reinflate(Eigen::MatrixXd Vc, Eigen::MatrixXi Ec,
+               Eigen::MatrixXd Vf, Eigen::MatrixXi Ef,
                std::vector<Eigen::MatrixXd> &Vf_flow,
                Eigen::MatrixXd Vc_inflated);
 
-void reinflate_simulate_timestep(Eigen::MatrixXd Vc, Eigen::MatrixXi Fc,
-                                 Eigen::MatrixXd Vf, Eigen::MatrixXi Ff,
+void reinflate_simulate_timestep(Eigen::MatrixXd Vc, Eigen::MatrixXi Ec,
+                                 Eigen::MatrixXd Vf, Eigen::MatrixXi Ef,
                                  double t,
                                  Eigen::MatrixXd Vc_inflated);
 

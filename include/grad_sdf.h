@@ -3,8 +3,8 @@
 
 #include "Eigen/Dense"
 
-void grad_sdf(Eigen::MatrixXd &Vc, Eigen::MatrixXi &Fc,
-              Eigen::MatrixXd &Vf, Eigen::MatrixXd &Ff,
+void grad_sdf(Eigen::MatrixXd &Vc, Eigen::MatrixXi &Ec,
+              Eigen::MatrixXd &Vf, Eigen::MatrixXd &Ef,
               Eigen::MatrixXd &g);
 
 #endif //CAGES_SDF_FIELD_H
