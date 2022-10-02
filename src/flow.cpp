@@ -1,9 +1,10 @@
-#include <iostream>
+#include <utility>
 #include "flow.h"
 #include "grad_sdf.h"
 
-int winding(Eigen::MatrixXd V, Eigen::MatrixXi E, Eigen::RowVector2d p)
+int query_winding_number(Eigen::MatrixXd &V, Eigen::MatrixXi &E, const Eigen::RowVector2d &p)
 {
+    // TODO: not sure if robust implementation
     Eigen::Matrix2d A;
     A.col(0) = Eigen::Vector2d(1, 0);
     int winding = 0;
@@ -22,27 +23,42 @@ int winding(Eigen::MatrixXd V, Eigen::MatrixXi E, Eigen::RowVector2d p)
     return winding;
 }
 
+bool query_point_inside(Eigen::MatrixXd &V, Eigen::MatrixXi &E, const Eigen::Vector2d &p)
+{
+    return query_winding_number(V, E, p) % 2 == 1;
+}
+
+bool query_mesh_inside(Eigen::MatrixXd &Vc, Eigen::MatrixXi &Ec,
+                       Eigen::MatrixXd &Vf, Eigen::MatrixXi &Ef)
+{
+    // TODO: this only checks if all vertices are inside, not if entire mesh is inside
+    for (int v = 0; v < Vf.rows(); v++)
+    {
+        if (!query_point_inside(Vc, Ec, Vf.row(v)))
+            return false;
+    }
+    return true;
+}
+
 void flow(Eigen::MatrixXd &Vc, Eigen::MatrixXi &Ec,
           Eigen::MatrixXd &Vf, Eigen::MatrixXi &Ef,
           std::vector<Eigen::MatrixXd> &Vf_flow)
 {
-    Eigen::MatrixXd g = Eigen::MatrixXd::Zero(Vf.rows(), Vf.cols());
-    for (int vf = 0; vf < Vf.rows(); vf++)
-    {
-        int min_index = 0;
-        double min_sqdistance = (Vf.row(vf) - Vc.row(0)).squaredNorm();
-        for (int vc = 1; vc < Vc.rows(); vc++)
-        {
-            double sqdistance = (Vf.row(vf) - Vc.row(vc)).squaredNorm();
-            if (sqdistance < min_sqdistance)
-            {
-                min_index = vc;
-                min_sqdistance = sqdistance;
+    while (!query_mesh_inside(Vc, Ec, Vf, Ef)) {
+        Eigen::MatrixXd g = Eigen::MatrixXd::Zero(Vf.rows(), Vf.cols());
+        for (int vf = 0; vf < Vf.rows(); vf++) {
+            int min_index = 0;
+            double min_sqdistance = (Vf.row(vf) - Vc.row(0)).squaredNorm();
+            for (int vc = 1; vc < Vc.rows(); vc++) {
+                double sqdistance = (Vf.row(vf) - Vc.row(vc)).squaredNorm();
+                if (sqdistance < min_sqdistance) {
+                    min_index = vc;
+                    min_sqdistance = sqdistance;
+                }
             }
+            // calculate winding number
+            int w = query_winding_number(Vc, Ec, Vf.row(vf));
+            bool inside = w % 2 == 1;
         }
-        // calculate winding number
-        int w = winding(Vc, Ec, Vf.row(vf));
-        bool inside = w % 2 == 1;
-        std::cout << "vf: " << Vf.row(vf) << " winding: " << w << "\n";
     }
 }
