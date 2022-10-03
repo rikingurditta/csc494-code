@@ -1,4 +1,5 @@
 #include <utility>
+#include <iostream>
 #include "flow.h"
 #include "grad_sdf.h"
 
@@ -44,21 +45,34 @@ void flow(Eigen::MatrixXd &Vc, Eigen::MatrixXi &Ec,
           Eigen::MatrixXd &Vf, Eigen::MatrixXi &Ef,
           std::vector<Eigen::MatrixXd> &Vf_flow)
 {
-    while (!query_mesh_inside(Vc, Ec, Vf, Ef)) {
+    int c = 0;
+    double h = 0.1;
+    Vf_flow.emplace_back(Vf);
+    Eigen::MatrixXd V_curr = Vf;
+    while (!query_mesh_inside(Vc, Ec, Vf, Ef) && c < 25) {
+        // g = ∇ sdf
+        // TODO: calculate SDF better, use numerical integration along edges to smooth it
         Eigen::MatrixXd g = Eigen::MatrixXd::Zero(Vf.rows(), Vf.cols());
-        for (int vf = 0; vf < Vf.rows(); vf++) {
+        for (int v = 0; v < V_curr.rows(); v++) {
             int min_index = 0;
-            double min_sqdistance = (Vf.row(vf) - Vc.row(0)).squaredNorm();
+            double min_sqdistance = (V_curr.row(v) - Vc.row(0)).squaredNorm();
             for (int vc = 1; vc < Vc.rows(); vc++) {
-                double sqdistance = (Vf.row(vf) - Vc.row(vc)).squaredNorm();
+                double sqdistance = (V_curr.row(v) - Vc.row(vc)).squaredNorm();
                 if (sqdistance < min_sqdistance) {
                     min_index = vc;
                     min_sqdistance = sqdistance;
                 }
             }
             // calculate winding number
-            int w = query_winding_number(Vc, Ec, Vf.row(vf));
-            bool inside = w % 2 == 1;
+            int w = query_winding_number(Vc, Ec, V_curr.row(v));
+            // even winding number -> outside -> sdf is positive
+            g.row(v) = pow(-1, w)
+                       * (V_curr.row(v) - Vc.row(min_index)).normalized();
         }
+        Eigen::MatrixXd V_new = V_curr - h * g;
+        Vf_flow.emplace_back(V_new);
+        V_curr = V_new;
+        std::cout << c << "\n";
+        c++;
     }
 }

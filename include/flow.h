@@ -1,6 +1,7 @@
 #ifndef CAGES_FLOW_H
 #define CAGES_FLOW_H
 
+#include <vector>
 #include "Eigen/Dense"
 
 void flow(Eigen::MatrixXd &Vc, Eigen::MatrixXi &Ec,
