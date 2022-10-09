@@ -4,8 +4,10 @@
 #include <vector>
 #include "Eigen/Dense"
 
-void flow(Eigen::MatrixXd &Vc, Eigen::MatrixXi &Ec,
-          Eigen::MatrixXd &Vf, Eigen::MatrixXi &Ef,
-          std::vector<Eigen::MatrixXd> &Vf_flow);
+void closest_point_on_mesh(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const Eigen::RowVector2d &p,
+                           Eigen::RowVector2d &closest_point);
+
+int flow(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec, const Eigen::MatrixXd &Vf, const Eigen::MatrixXi &Ef,
+         int max_num_meshes, std::vector<Eigen::MatrixXd> &Vf_flow, double h);
 
 #endif //CAGES_FLOW_H
