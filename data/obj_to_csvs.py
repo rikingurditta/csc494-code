@@ -17,10 +17,11 @@ def obj_to_csvs(file):
 
 
 if __name__ == '__main__':
-    files = ['2d_torus.obj',
-             '2d_torus_dec1.obj',
-             '2d_torus_dec2.obj',
-             '2d_torus_dec3.obj']
+    # files = ['2d_torus.obj',
+    #          '2d_torus_dec1.obj',
+    #          '2d_torus_dec2.obj',
+    #          '2d_torus_dec3.obj']
+    files = ['2d_idk.obj', '2d_idk_dec1.obj']
     for filename in files:
         with open(filename) as f:
             obj_to_csvs(f)

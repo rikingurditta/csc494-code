@@ -21,10 +21,10 @@ void make_3d_mesh_from_2d(const Eigen::MatrixXd &V2d, const Eigen::MatrixXi &E2d
 int main(int argc, char *argv[]) {
     Eigen::MatrixXd Vf, Vc;
     Eigen::MatrixXi Ef, Ec;
-    igl::readCSV("../data/2d_torus_V.csv", Vf);
-    igl::readCSV("../data/2d_torus_E.csv", Ef);
-    igl::readCSV("../data/2d_torus_dec2_V.csv", Vc);
-    igl::readCSV("../data/2d_torus_dec2_E.csv", Ec);
+    igl::readCSV("../data/2d_idk_V.csv", Vf);
+    igl::readCSV("../data/2d_idk_E.csv", Ef);
+    igl::readCSV("../data/2d_idk_dec1_V.csv", Vc);
+    igl::readCSV("../data/2d_idk_dec1_E.csv", Ec);
 
     int max_flow_meshes = 24;
     std::vector<Eigen::MatrixXd> Vf_flow;
@@ -69,8 +69,8 @@ int main(int argc, char *argv[]) {
                 }
                 if (m < 0)
                     m = 0;
-                else if (m > max_flow_meshes)
-                    m = max_flow_meshes;
+                else if (m > num_flow_meshes)
+                    m = num_flow_meshes;
 
                 std::cout << m << "\n";
                 Vf_viewer.block(0, 0, Vf.rows(), 2) = Vf_flow[m];
