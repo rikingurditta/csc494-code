@@ -1,3 +1,4 @@
+#include <iostream>
 #include "flow.h"
 #include "grad_sdf.h"
 #include "igl/adjacency_list.h"
@@ -19,14 +20,21 @@ void quadrature_grad_dist(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
                           Eigen::RowVector2d &g)
 {
     g = Eigen::RowVector2d::Zero();
+    double l0 = (p - p_e0).norm();
+    double l1 = (p - p_e1).norm();
+    Eigen::RowVector2d g0;
+    Eigen::RowVector2d g1;
+//    grad_unsigned_distance(V, E, (p + p_e0) / 2, g0);
+//    grad_unsigned_distance(V, E, (p + p_e1) / 2, g1);
+//    g = (g0 / l0 + g1 / l1).normalized();
+//    return;
     for (int i = 0; i <= num_points; i++) {
+        // t is fraction of distance across edge
         double t = i * 1. / num_points;
-        Eigen::RowVector2d g0;
+        // get closest point direction sample at t% along either edge
         grad_unsigned_distance(V, E, (1. - t) * p + t * p_e0, g0);
-        double l0 = (p - p_e0).norm();
-        Eigen::RowVector2d g1;
         grad_unsigned_distance(V, E, (1. - t) * p + t * p_e1, g1);
-        double l1 = (p - p_e1).norm();
+        // add to total gradient with weight t^2 (also weight by edge length)
         g += pow(1. - t, 2) * (g0 / l0 + g1 / l1);
     }
     g.normalize();
@@ -60,8 +68,10 @@ bool query_mesh_inside(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec,
                        const Eigen::MatrixXd &Vf, const Eigen::MatrixXi &Ef) {
     // TODO: this only checks if all vertices are inside, not if entire mesh is inside
     for (int v = 0; v < Vf.rows(); v++) {
-        if (!query_point_inside(Vc, Ec, Vf.row(v)))
+        if (!query_point_inside(Vc, Ec, Vf.row(v))) {
+//            std::cout << Vf.row(v) << "\n";
             return false;
+        }
     }
     return true;
 }
