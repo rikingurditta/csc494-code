@@ -5,42 +5,50 @@
 
 // TODO: use TinyAD for these
 
+// V0, E0, V1, E1 = current meshes
 // dhat = barrier function safe distance - only need to evaluate distance for pairs that are closer together than dhat
-void barrier_aware_projected_newton(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
+void barrier_aware_projected_newton(const Eigen::MatrixXd &V0, const Eigen::MatrixXi &E0,
+                                    const Eigen::MatrixXd &V1, const Eigen::MatrixXi &E1,
                                     double dhat);
 
-// V, E = input mesh
+// V0, E0, V1, E1 = current meshes
 // dhat = barrier function safe distance
 // Chat = constraint set, i.e. list of primitives (edges) that are closer together than dhat
 // probably need to use some sort of bounding volume hierarchy for this
-void constraint_set(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, double dhat,
+void constraint_set(const Eigen::MatrixXd &V0, const Eigen::MatrixXi &E0,
+                    const Eigen::MatrixXd &V1, const Eigen::MatrixXi &E1,
+                    double dhat,
                     Eigen::MatrixXi &Chat);
 
 
-// barrier energy = total energy of system + barrier energy
-void barrier_augmented_potential(double dhat, double stiffness);
-
-
-// V, E = mesh
-// x_query = vertex positions for which we want to measure energy
-// x = current vertex positions
-// v = current velocity
+// V, E = current meshe
+// x = current mesh vertex positions
+// x_query = vertex positions for which the energy is being calculated
+// v = current mesh velocity
 // fe = external forces
 // M = mass matrix
 // does not take into account friction because we don't need it for nested cages
-void total_energy(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
-                  const Eigen::MatrixXd &x_query,
-                  const Eigen::MatrixXd &x, const Eigen::MatrixXd &v, const Eigen::MatrixXd &fe,
-                  const Eigen::MatrixXd &M);
+// returns nested cages energy + barrier energy
+double total_energy(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
+                    const Eigen::VectorXd &x, const Eigen::VectorXd &x_query,
+                    const Eigen::VectorXd &v, const Eigen::VectorXd &fe,
+                    const Eigen::MatrixXd &M,
+                    double dt);
+
+
+// barrier energy = total energy of system + barrier energy
+// V0, E0, V1, E1 = current meshes
+double barrier_potential(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
+                         const Eigen::VectorXd &x_query,
+                         double dhat, double stiffness);
 
 
 // nested cages mesh quality energy
 // for now, will just use area energy
 // note for implementation - can use green's theorem to integrate area over boundary, i.e. int_S 1 dA = int_∂S x dy
-// V, E = mesh
-//        (V unnecessary for area energy)
-// x_query = current vertex positions
-void E_nested_cages(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
-                    const Eigen::MatrixXd &x_query);
+// V, E = current mesh
+// x_query = vertex positions for which the energy is being calculated
+// returns energy meant to be minimized for nested cages (e.g. volume energy in a typical case)
+double nested_cages_energy(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const Eigen::VectorXd &x_query);
 
 #endif //CAGES_BAPN_H
