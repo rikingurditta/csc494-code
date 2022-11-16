@@ -5,6 +5,8 @@
 #include "igl/readCSV.h"
 #include "reinflate.h"
 #include "closest_points.h"
+#include "BAPN.h"
+#include "helpers.h"
 
 void make_3d_mesh_from_2d(const Eigen::MatrixXd &V2d, const Eigen::MatrixXi &E2d,
                           Eigen::MatrixXd &V3, Eigen::MatrixXi &F3d)
@@ -18,7 +20,8 @@ void make_3d_mesh_from_2d(const Eigen::MatrixXd &V2d, const Eigen::MatrixXi &E2d
     F3d.col(2) = E2d.col(1);
 }
 
-int main(int argc, char *argv[]) {
+void nested_cages()
+{
     Eigen::MatrixXd Vf, Vc;
     Eigen::MatrixXi Ef, Ec;
     igl::readCSV("../data/2d_idk_V.csv", Vf);
@@ -81,4 +84,28 @@ int main(int argc, char *argv[]) {
                 return true;
             };
     viewer.launch();
+}
+
+void test_bapn()
+{
+    Eigen::MatrixXd Vf, Vc;
+    Eigen::MatrixXi Ef, Ec;
+    igl::readCSV("../data/square_hole_hand_V.csv", Vf);
+    igl::readCSV("../data/square_hole_hand_E.csv", Ef);
+    igl::readCSV("../data/2d_idk_dec1_V.csv", Vc);
+    igl::readCSV("../data/2d_idk_dec1_E.csv", Ec);
+
+    Eigen::VectorXd x_query = flatten(Vf);
+    std::cout << Vf << "\n";
+    std::cout << Ef << "\n";
+
+//    double E = nested_cages_energy(Vf, Ef, x_query);
+    auto E = nested_cages_energy(Vf, Ef, x_query);
+    std::cout << "Energy: " << std::get<0>(E) << "\n";
+}
+
+int main(int argc, char *argv[])
+{
+//    nested_cages();
+    test_bapn();
 }
