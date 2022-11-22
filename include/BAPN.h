@@ -15,35 +15,26 @@ void barrier_aware_projected_newton(const Eigen::MatrixXd &V0, const Eigen::Matr
 
 // V0, E0, V1, E1 = current meshes
 // dhat = barrier function safe distance
-// Chat = constraint set, i.e. list of primitives (edges) that are closer together than dhat
-// probably need to use some sort of bounding volume hierarchy for this
-std::vector<std::tuple<int, int, int>> constraint_set(const Eigen::MatrixXd &V0, const Eigen::MatrixXi &E0,
-                                                      const Eigen::MatrixXd &V1,
-                                                      double dhat);
+// return constraint set, i.e. list of primitives (edges) that are closer together than dhat
+std::vector<std::tuple<int, int, int>> constraint_set(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_edges,
+                                                      const Eigen::VectorXd &x_vertices, double dhat);
 
 
-// V, E = current meshe
-// x = current mesh vertex positions
-// x_query = vertex positions for which the nested_cages_energy is being calculated
-// v = current mesh velocity
-// fe = external forces
-// M = mass matrix
+// V, E = current meshes
+// x = queried mesh vertex positions
 // does not take into account friction because we don't need it for nested cages
 // returns nested cages energy + barrier nested_cages_energy
-auto
-total_energy(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec,
-             const Eigen::MatrixXd &Vf, const Eigen::MatrixXi &Ef,
-             const Eigen::VectorXd &x, const Eigen::VectorXd &x_query,
-             const Eigen::VectorXd &v, const Eigen::VectorXd &fe,
-             const Eigen::MatrixXd &M, double dt);
+std::tuple<double, Eigen::VectorXd, Eigen::SparseMatrix<double>>
+total_energy(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec, const Eigen::MatrixXd &Vf,
+             const Eigen::MatrixXd &Vf_next, const Eigen::MatrixXi &Ef, const Eigen::VectorXd &x);
 
 
 // barrier energy = total energy of system + barrier nested_cages_energy
 // V0, E0, V1, E1 = current meshes
-auto barrier_potential(const Eigen::MatrixXd &V0, const Eigen::MatrixXi &E0,
-                       const Eigen::MatrixXd &V1, const Eigen::MatrixXi &E1,
-                       const Eigen::VectorXd &x_query,
-                       double dhat, double stiffness);
+std::tuple<double, Eigen::VectorXd, Eigen::SparseMatrix<double>>
+barrier_potential(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_edges,
+                  const Eigen::VectorXd &x_vertices,
+                  double dhat, double stiffness);
 
 
 // nested cages mesh quality nested_cages_energy
@@ -54,6 +45,7 @@ auto barrier_potential(const Eigen::MatrixXd &V0, const Eigen::MatrixXi &E0,
 // returns energy meant to be minimized for nested cages (e.g. volume nested_cages_energy in a typical case)
 //ADouble nested_cages_energy(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const VectorXAD &x_query);
 
-std::tuple<double, Eigen::VectorXd, Eigen::SparseMatrix<double>> nested_cages_energy(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const Eigen::VectorXd &x_query);
+std::tuple<double, Eigen::VectorXd, Eigen::SparseMatrix<double>>
+nested_cages_energy(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_query, int index_offset);
 
 #endif //CAGES_BAPN_H
