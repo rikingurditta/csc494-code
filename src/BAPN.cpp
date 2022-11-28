@@ -92,7 +92,7 @@ barrier_potential(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_edges,
         if (abs(dist) < 1e-15)
             return (T) 0;
         else
-            return -(dist - dhat) * log(dist / dhat);
+            return -(dist - dhat) * (dist - dhat) * log(dist / dhat);
     });
 
     return func.eval_with_hessian_proj(x_vertices);
