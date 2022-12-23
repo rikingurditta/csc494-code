@@ -3,6 +3,7 @@
 #include "grad_sdf.h"
 #include "igl/adjacency_list.h"
 #include "closest_points.h"
+#include "helpers.h"
 
 void grad_unsigned_distance(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const Eigen::RowVector2d &p,
                             Eigen::RowVector2d &g)
@@ -40,36 +41,12 @@ void quadrature_grad_dist(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
     g.normalize();
 }
 
-
-int query_winding_number(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
-                         const Eigen::RowVector2d &p) {
-    // TODO: not sure if robust implementation
-    Eigen::Matrix2d A;
-    A.col(0) = Eigen::Vector2d(1, 0);
-    int winding = 0;
-    for (int e = 0; e < E.rows(); e++) {
-        int vc0 = E(e, 0), vc1 = E(e, 1);
-        A.col(1) = (V.row(vc1) - V.row(vc0)).transpose();
-        Eigen::Vector2d c = p - V.row(vc0);
-        if (A.determinant() != 0) {
-            Eigen::Vector2d st = A.inverse() * c;
-            if (st(0) < 0. and 0. < st(1) and st(1) < 1.)
-                winding++;
-        }
-    }
-    return winding;
-}
-
-bool query_point_inside(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const Eigen::Vector2d &p) {
-    return query_winding_number(V, E, p) % 2 == 1;
-}
-
-bool query_mesh_inside(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec,
-                       const Eigen::MatrixXd &Vf, const Eigen::MatrixXi &Ef) {
+bool
+query_mesh_inside(const Eigen::MatrixXd &V_outside, const Eigen::MatrixXi &E_outside, const Eigen::MatrixXd &V_inside) {
     // TODO: this only checks if all vertices are inside, not if entire mesh is inside
-    for (int v = 0; v < Vf.rows(); v++) {
-        if (!query_point_inside(Vc, Ec, Vf.row(v))) {
-//            std::cout << Vf.row(v) << "\n";
+    for (int v = 0; v < V_inside.rows(); v++) {
+        if (!query_point_inside(V_outside, E_outside, V_inside.row(v))) {
+//            std::cout << V_inside.row(v) << "\n";
             return false;
         }
     }
@@ -83,7 +60,7 @@ int flow(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec, const Eigen::Matr
     Eigen::MatrixXd V_curr = Vf;
     std::vector<std::vector<int>> A;
     igl::adjacency_list(Ef, A);
-    while (!query_mesh_inside(Vc, Ec, Vf, Ef) && iteration < max_num_meshes) {
+    while (!query_mesh_inside(Vc, Ec, V_curr) && iteration < max_num_meshes) {
         // g = ∇ sdf
         Eigen::MatrixXd g = Eigen::MatrixXd::Zero(Vf.rows(), Vf.cols());
         for (int v = 0; v < V_curr.rows(); v++) {

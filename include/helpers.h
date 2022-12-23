@@ -10,5 +10,8 @@ Eigen::VectorXd vector_segment_assemble(Eigen::Index size, Eigen::Index start, c
 Eigen::SparseMatrix<double> sparse_block_assemble(Eigen::Index rows, Eigen::Index cols,
                                                   Eigen::Index startRow, Eigen::Index startCol,
                                                   const Eigen::SparseMatrix<double> &block);
+int query_winding_number(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
+                         const Eigen::RowVector2d &p);
+bool query_point_inside(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const Eigen::Vector2d &p);
 
 #endif //CAGES_HELPERS_H

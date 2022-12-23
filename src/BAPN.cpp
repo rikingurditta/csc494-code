@@ -4,6 +4,7 @@
 #include <TinyAD/Utils/Helpers.hh>
 #include <TinyAD/ScalarFunction.hh>
 #include "helpers.h"
+#include <limits>
 
 
 void barrier_aware_projected_newton(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
@@ -16,7 +17,7 @@ void barrier_aware_projected_newton(const Eigen::MatrixXd &V, const Eigen::Matri
 std::vector<std::tuple<int, int, int>> constraint_set(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_edges,
                                                       const Eigen::VectorXd &x_vertices, double dhat) {
     // TODO: redo with BVH
-    auto out = std::vector<std::tuple<int, int, int>>();
+    std::vector<std::tuple<int, int, int>> out;
     for (int e = 0; e < E.rows(); e++) {
         int e0 = E(e, 0), e1 = E(e, 1);
         Eigen::Vector2d ve0 = x_edges.segment<2>(e0 * 2);
@@ -42,7 +43,7 @@ std::vector<std::tuple<int, int, int>> constraint_set(const Eigen::MatrixXi &E, 
 
 std::tuple<double, Eigen::VectorXd, Eigen::SparseMatrix<double>>
 nested_cages_energy(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_query, int index_offset) {
-    auto func = TinyAD::scalar_function<2>(TinyAD::range(x_query.rows() / 2 - index_offset));
+    auto func = TinyAD::scalar_function<2>(TinyAD::range(x_query.rows() / 2));
 
     // put together 2d vertex positions from global x vector
     Eigen::VectorXd x = func.x_from_data([&](int v) {
@@ -54,6 +55,8 @@ nested_cages_energy(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_query, in
         Eigen::Index e = element.handle;
         Eigen::Vector2<T> v0 = element.variables(E(e, 0));
         Eigen::Vector2<T> v1 = element.variables(E(e, 1));
+
+        // negating because test meshes are cw instead of ccw
         return -0.5 * (v1.y() - v0.y()) * (v0.x() + v1.x());
     });
     return func.eval_with_hessian_proj(x_query);
@@ -62,9 +65,8 @@ nested_cages_energy(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_query, in
 // assumes x = stack(flatten(V0), flatten(V1))
 // typically, x = stack(flatten(Vc), flatten(Vf)), so if want to use Vc for vertices, set use_mesh0_edges = false
 std::tuple<double, Eigen::VectorXd, Eigen::SparseMatrix<double>>
-barrier_potential(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_edges,
-                  const Eigen::VectorXd &x_vertices,
-                  double dhat, double stiffness) {
+barrier_potential(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_edges, const Eigen::VectorXd &x_vertices,
+                  double dhat) {
     std::vector<std::tuple<int, int, int>> Chat;
     Chat = constraint_set(E, x_edges, x_vertices, dhat);
 
@@ -98,13 +100,47 @@ barrier_potential(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_edges,
     return func.eval_with_hessian_proj(x_vertices);
 }
 
+double mesh_intersection_energy(const Eigen::VectorXd &x0, const Eigen::MatrixXi &E0,
+                                const Eigen::VectorXd &x1, const Eigen::MatrixXi &E1) {
+    for (int e0 = 0; e0 < E0.rows(); e0++) {
+        Eigen::Vector2d a0 = x0.segment<2>(E0(e0, 0) * 2);
+        Eigen::Vector2d d0 = x0.segment<2>(E0(e0, 1) * 2) - a0;
+        for (int e1 = 0; e1 < E1.rows(); e1++) {
+            Eigen::Vector2d a1 = x1.segment<2>(E1(e1, 0) * 2);
+            Eigen::Vector2d d1 = x1.segment<2>(E1(e1, 1) * 2) - a1;
+            Eigen::Matrix2d A;
+            A.col(0) = d0;
+            A.col(1) = -d1;
+            if (A.determinant() == 0) {
+                continue;
+                // TODO
+            }
+            Eigen::Vector2d st = A.inverse() * (a1 - a0);
+            double s = st(0), t = st(1);
+            if (0 <= s and s <= 1 and 0 <= t and t <= 1)
+                return std::numeric_limits<double>::infinity();
+        }
+    }
+    return 0;
+}
+
+double winding_number_energy(const Eigen::VectorXd &xc, const Eigen::MatrixXi &Ec,
+                             const Eigen::VectorXd &xf, const Eigen::MatrixXi &Ef) {
+    Eigen::MatrixXd Vc = unflatten(xc, 2);
+    for (int v = 0; v < xf.rows() / 2; v++) {
+        if (query_winding_number(Vc, Ec, xf.segment<2>(v * 2)) == 0)
+            return std::numeric_limits<double>::infinity();
+    }
+    return 0;
+}
+
 // x = stack(flatten(Vc), flatten(Vf))
 std::tuple<double, Eigen::VectorXd, Eigen::SparseMatrix<double>>
 total_energy(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec, const Eigen::MatrixXd &Vf,
-             const Eigen::MatrixXd &Vf_next, const Eigen::MatrixXi &Ef, const Eigen::VectorXd &x) {
-    double dhat = 0.1;
-    double lambda = 10;
-    double k = 0.1;
+             const Eigen::MatrixXd &Vf_next, const Eigen::MatrixXi &Ef, const Eigen::VectorXd &x, double dhat) {
+    double c_cages = 100;
+    double c_reinflate = 10;
+    double c_barrier = 1;
 
     Eigen::VectorXd xc = x.segment(0, Vc.rows() * 2);
     Eigen::VectorXd xf = x.segment(Vc.rows() * 2, Vf.rows() * 2);
@@ -115,41 +151,46 @@ total_energy(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec, const Eigen::
     auto [E_cages, g_cages, H_cages]
             = nested_cages_energy(Ec, x, 0);
     // compare vertices of F with edges of C
-//    auto [E_barrier_F_vs_C, gf_barrier_F_vs_C, Hf_barrier_F_vs_C]
-//            = barrier_potential(Ec, xc, xf, dhat, k);
-//    Eigen::VectorXd g_barrier_F_vs_C = vector_segment_assemble(x.size(), xf_start, gf_barrier_F_vs_C);
-//    Eigen::SparseMatrix<double> H_barrier_F_vs_C =
-//            sparse_block_assemble(x.size(), x.size(), xf_start, xf_start, Hf_barrier_F_vs_C);
+    auto [E_barrier_F_vs_C, gf_barrier_F_vs_C, Hf_barrier_F_vs_C]
+            = barrier_potential(Ec, xc, xf, dhat);
+    Eigen::VectorXd g_barrier_F_vs_C = vector_segment_assemble(x.size(), xf_start, gf_barrier_F_vs_C);
+    Eigen::SparseMatrix<double> H_barrier_F_vs_C =
+            sparse_block_assemble(x.size(), x.size(), xf_start, xf_start, Hf_barrier_F_vs_C);
     // compare vertices of C with edges of F
-//    auto [E_barrier_C_vs_F, gc_barrier_C_vs_F, Hc_barrier_C_vs_F]
-//            = barrier_potential(Ef, xf, xc, dhat, k);
-//    Eigen::VectorXd g_barrier_C_vs_F = vector_segment_assemble(x.size(), xc_start, gc_barrier_C_vs_F);
-//    Eigen::SparseMatrix<double> H_barrier_C_vs_F =
-//            sparse_block_assemble(x.size(), x.size(), xc_start, xc_start, Hc_barrier_C_vs_F);
+    auto [E_barrier_C_vs_F, gc_barrier_C_vs_F, Hc_barrier_C_vs_F]
+            = barrier_potential(Ef, xf, xc, dhat);
+    Eigen::VectorXd g_barrier_C_vs_F = vector_segment_assemble(x.size(), xc_start, gc_barrier_C_vs_F);
+    Eigen::SparseMatrix<double> H_barrier_C_vs_F =
+            sparse_block_assemble(x.size(), x.size(), xc_start, xc_start, Hc_barrier_C_vs_F);
     // compare vertices of C with edges of C
     auto [E_barrier_C_vs_C, gc_barrier_C_vs_C, Hc_barrier_C_vs_C]
-            = barrier_potential(Ec, xc, xc, dhat, k);
+            = barrier_potential(Ec, xc, xc, dhat);
     Eigen::VectorXd g_barrier_C_vs_C = vector_segment_assemble(x.size(), xc_start, gc_barrier_C_vs_C);
     Eigen::SparseMatrix<double> H_barrier_C_vs_C =
             sparse_block_assemble(x.size(), x.size(), xc_start, xc_start, Hc_barrier_C_vs_C);
 
     // calculating displacement energy and its derivatives manually because TinyAD is annoying when it comes to dynamic
     // size matrices
-    double E_disp = (xf - xf_next).squaredNorm() / 2. * lambda;
-    Eigen::VectorXd g_disp_f = (xf - xf_next) * lambda;
-    Eigen::VectorXd g_disp = Eigen::VectorXd::Zero(x.rows());
-    g_disp.segment(Vc.rows() * 2, Vf.rows() * 2) = g_disp_f;
+    double E_disp = (xf - xf_next).squaredNorm() / 2.;
+    Eigen::VectorXd g_disp_f = (xf - xf_next);
+    Eigen::VectorXd g_disp = vector_segment_assemble(x.size(), xf_start, g_disp_f);
     // don't need to proj E_disp.Hess since its hessian is already SPD
-    Eigen::MatrixXd H_disp_f = Eigen::MatrixXd::Identity(xf.rows(), xf.rows()) * lambda;
-    Eigen::MatrixXd H_disp = Eigen::MatrixXd::Zero(x.rows(), x.rows());
-    H_disp.block(Vc.rows() * 2, Vc.rows() * 2, Vf.rows() * 2, Vf.rows() * 2) = H_disp_f;
+    Eigen::SparseMatrix<double> H_disp(x.size(), x.size());
+    std::vector<Eigen::Triplet<double>> list;
+    for (long i = xf_start; i < x.size(); i++)
+        list.emplace_back(i, i, 1.);
+    H_disp.setFromTriplets(list.begin(), list.end());
 
-//    double energy = E_cages + E_barrier_F_vs_C + E_barrier_C_vs_F + E_barrier_C_vs_C + E_disp;
-//    Eigen::VectorXd gradient = g_cages + g_barrier_F_vs_C + g_barrier_C_vs_F + g_barrier_C_vs_C + g_disp;
-//    Eigen::SparseMatrix<double> hessian_proj =
-//            H_cages + H_barrier_F_vs_C + H_barrier_C_vs_F + H_barrier_C_vs_C + H_disp;
-
-//    return {energy, gradient, hessian_proj};
-//    return {E_cages, g_cages, H_cages};
-    return {E_cages + E_barrier_C_vs_C, g_cages + g_barrier_C_vs_C, H_cages + H_barrier_C_vs_C};
+    return {c_cages * E_cages
+            + c_reinflate * E_disp
+            + c_barrier * (E_barrier_F_vs_C + E_barrier_C_vs_F + E_barrier_C_vs_C)
+            // don't add following checks to grad/hess
+            + mesh_intersection_energy(xc, Ec, xf, Ef)
+            + winding_number_energy(xc, Ec, xf, Ef),
+            c_cages * g_cages
+            + c_reinflate * g_disp
+            + c_barrier * (g_barrier_F_vs_C + g_barrier_C_vs_F + g_barrier_C_vs_C),
+            c_cages * H_cages
+            + c_reinflate * H_disp
+            + c_barrier * (H_barrier_F_vs_C + H_barrier_C_vs_F + H_barrier_C_vs_C)};
 }
