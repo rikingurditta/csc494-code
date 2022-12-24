@@ -29,10 +29,9 @@ total_energy(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec, const Eigen::
              const Eigen::MatrixXd &Vf_next, const Eigen::MatrixXi &Ef, const Eigen::VectorXd &x, double dhat);
 
 
-// barrier energy = total energy of system + barrier nested_cages_energy
-// V0, E0, V1, E1 = current meshes
 std::tuple<double, Eigen::VectorXd, Eigen::SparseMatrix<double>>
-barrier_potential(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_edges, const Eigen::VectorXd &x_vertices,
+barrier_potential(const Eigen::MatrixXi &E, const Eigen::VectorXd &x,
+                  Eigen::Index e_mesh_offset, Eigen::Index e_mesh_n, Eigen::Index v_mesh_offset, Eigen::Index v_mesh_n,
                   double dhat);
 
 

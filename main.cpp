@@ -8,15 +8,38 @@
 #include "BAPN.h"
 #include "helpers.h"
 
+Eigen::MatrixXd make_3d_mat_from_2d(const Eigen::MatrixXd &V2d) {
+    Eigen::MatrixXd V3 = Eigen::MatrixXd::Zero(V2d.rows(), 3);
+    V3.block(0, 0, V2d.rows(), 2) = V2d;
+    return V3;
+}
+
 void make_3d_mesh_from_2d(const Eigen::MatrixXd &V2d, const Eigen::MatrixXi &E2d,
                           Eigen::MatrixXd &V3, Eigen::MatrixXi &F3d) {
     // all z coordinates are 0
-    V3 = Eigen::MatrixXd::Zero(V2d.rows(), 3);
-    V3.block(0, 0, V2d.rows(), 2) = V2d;
+    V3 = make_3d_mat_from_2d(V2d);
     // each 2d mesh edge becomes a degenerate triangle
     F3d = Eigen::MatrixXi::Zero(E2d.rows(), 3);
     F3d.block(0, 0, E2d.rows(), 2) = E2d;
     F3d.col(2) = E2d.col(1);
+}
+
+void plot_grads(const Eigen::MatrixXd &G, const Eigen::MatrixXd &Vc, const Eigen::MatrixXd &Vf, double h,
+                igl::opengl::glfw::Viewer &viewer, int index) {
+    Eigen::MatrixXd V = Eigen::MatrixXd::Zero((Vc.rows() + Vf.rows()) * 2, 3);
+    Eigen::MatrixXi E(Vc.rows() + Vf.rows(), 2);
+    Eigen::Vector3d red = Eigen::Vector3d(1, 0, 0);
+    Eigen::Vector3d green = Eigen::Vector3d(0, 1, 0);
+    Eigen::MatrixXd C(Vc.rows() + Vf.rows(), 3);
+    C.block(0, 0, Vc.rows(), 3).rowwise() = red.transpose();
+    C.block(Vc.rows(), 0, Vf.rows(), 3).rowwise() = green.transpose();
+    V.block(0, 0, (Vc.rows() + Vf.rows()) * 2, 2) << Vc, Vf, Vc, Vf;
+    V.block(Vc.rows() + Vf.rows(), 0, Vc.rows() + Vf.rows(), 2) += G * h;
+    for (int i = 0; i < Vc.rows() + Vf.rows(); i++) {
+        E(i, 0) = i;
+        E(i, 1) = i + Vc.rows() + Vf.rows();
+    }
+    viewer.data(index).set_edges(V, E, C);
 }
 
 void nested_cages() {
@@ -31,9 +54,13 @@ void nested_cages() {
     int max_flow_meshes = 24;
     std::vector<Eigen::MatrixXd> Vc_flow;
     std::vector<Eigen::MatrixXd> Vf_flow;
+    std::vector<Eigen::MatrixXd> reinflation_grads;
     int num_flow_meshes = flow(Vc, Ec, Vf, Ef, max_flow_meshes, Vf_flow, 0.01);
-    for (int i = 0; i < num_flow_meshes + 1; i++)
+    for (int i = 0; i < num_flow_meshes + 1; i++) {
         Vc_flow.emplace_back(Vc);
+        reinflation_grads.emplace_back(Eigen::MatrixXd::Zero(Vc.rows() + Vf.rows(), 2));
+    }
+    reinflation_grads.pop_back();
     Eigen::MatrixXd Vc_inflated;
 //    reinflate(Vc, Ec, Vf, Ef, Vf_flow, Vc_inflated);
 
@@ -48,6 +75,8 @@ void nested_cages() {
     viewer.append_mesh();
     viewer.append_mesh();
     viewer.append_mesh();
+    viewer.append_mesh();
+    viewer.append_mesh();
     viewer.data(0).set_mesh(Vf_viewer, Ff_viewer);
     viewer.data(1).set_mesh(Vc_viewer, Fc_viewer);
     viewer.data(4).set_mesh(Vf_viewer, Ff_viewer);
@@ -55,8 +84,7 @@ void nested_cages() {
 
     Eigen::MatrixXd C(Vf.rows(), 2);
     query_closest_points(Vf, Vc, Ec, C);
-    Eigen::MatrixXd V_closest_points_viewer = Eigen::MatrixXd::Zero(C.rows(), 3);
-    V_closest_points_viewer.block(0, 0, V_closest_points_viewer.rows(), 2) = C;
+    Eigen::MatrixXd V_closest_points_viewer = make_3d_mat_from_2d(C);
     Eigen::MatrixXd closest_points_colours = Eigen::MatrixXd::Ones(C.rows(), 3);
     viewer.data(2).set_points(V_closest_points_viewer, closest_points_colours);
     viewer.data(2).point_size = 5;
@@ -76,13 +104,12 @@ void nested_cages() {
     x.segment(Vc.rows() * 2, Vf.rows() * 2) = flatten(Vf_flow[num_flow_meshes]);
     Eigen::VectorXd dir;
     for (int i = num_flow_meshes; i > 0; i--) {
-        std::cout << i << "\n";
+        std::cout << "i: " << i << "\n";
         Eigen::MatrixXd Vf_next = Vf_flow[i - 1];
         Eigen::MatrixXd Vf_curr = unflatten(x, 2).block(Vc.rows(), 0, Vf.rows(), 2);
         // descent iterations
-        for (int j = 0; j < 20; j++) {
+        for (int j = 0; j < 100; j++) {
             auto [E, g, H] = total_energy(Vc, Ec, Vf_curr, Vf_next, Ef, x, 0.1);
-            std::cout << E << "\n";
 
             dir = -g;
             // could check norm of grad to see if converged/can't step
@@ -94,9 +121,8 @@ void nested_cages() {
             do {
                 t *= beta;
                 x_temp = x + t * dir;
-                auto [E_temp_2, g_temp, H_temp]
-                        = total_energy(Vc, Ec, Vf_curr, Vf_next, Ef, x_temp, 0.1);
-                E_temp = E_temp_2;
+                auto [E_, g_, H_] = total_energy(Vc, Ec, Vf_curr, Vf_next, Ef, x_temp, 0.1);
+                E_temp = E_;
             } while (E_temp > E + alpha * t * g.dot(dir) and t > 1e-15);
             if (t <= 1e-15) {
                 // don't need to step if converged
@@ -105,12 +131,15 @@ void nested_cages() {
             }
             x = x_temp;
         }
+        reinflation_grads.emplace_back(unflatten(dir, 2));
         Eigen::MatrixXd meshes = unflatten(x, 2);
         Vc_flow.emplace_back(meshes.block(0, 0, Vc.rows(), 2));
         Vf_flow.emplace_back(meshes.block(Vc.rows(), 0, Vf.rows(), 2));
     }
+    reinflation_grads.emplace_back(Eigen::MatrixXd::Zero(Vc.rows() + Vf.rows(), 2));
 
-    std::cout << "press a/s to reverse/progress flow\n";
+
+    std::cout << "press a/s to reverse/progress flow\npress d to go to end of flow/beginning of reinflation\n";
     long m = 0;
     viewer.callback_key_pressed =
             [&](igl::opengl::glfw::Viewer &, unsigned int key, int mod) {
@@ -138,7 +167,10 @@ void nested_cages() {
                 Vc_viewer.block(0, 0, Vc.rows(), 2) = Vc_flow[m];
                 viewer.data(1).set_mesh(Vc_viewer, Fc_viewer);
                 Eigen::MatrixXd Vf_target_viewer = Vf_viewer;
-                Vf_target_viewer.block(0, 0, Vf.rows(), 2) = Vf_flow[std::min(num_flow_meshes, num_flow_meshes * 2 - (int) m)];
+                if (m >= num_flow_meshes) {
+                    Vf_target_viewer.block(0, 0, Vf.rows(), 2)
+                            = Vf_flow[num_flow_meshes * 2 - m];
+                }
                 viewer.data(4).set_mesh(Vf_target_viewer, Ff_viewer);
 
                 query_closest_points(Vf_flow[m], Vc_flow[m], Ec, C);
@@ -149,6 +181,8 @@ void nested_cages() {
                                                                                                      V_outer_square_viewer.rows(),
                                                                                                      2);
                 viewer.data(3).set_points(V_outer_square_viewer, outer_square_colours);
+
+                plot_grads(reinflation_grads[m], Vc_flow[m], Vf_flow[m], 100, viewer, 5);
                 return true;
             };
     viewer.launch();
