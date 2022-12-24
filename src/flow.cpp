@@ -23,18 +23,14 @@ void quadrature_grad_dist(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
     double l1 = (p - p_e1).norm();
     Eigen::RowVector2d g0;
     Eigen::RowVector2d g1;
-//    grad_unsigned_distance(V, E, (p + p_e0) / 2, g0);
-//    grad_unsigned_distance(V, E, (p + p_e1) / 2, g1);
-//    g = (g0 / l0 + g1 / l1).normalized();
-//    return;
     for (int i = 0; i <= num_points; i++) {
         // t is fraction of distance across edge
         double t = i * 1. / num_points;
         // get closest point direction sample at t% along either edge
         grad_unsigned_distance(V, E, (1. - t) * p + t * p_e0, g0);
         grad_unsigned_distance(V, E, (1. - t) * p + t * p_e1, g1);
-        // add to total gradient with weight t^2 (also weight by edge length)
-        g += pow(1. - t, 2) * (g0 / l0 + g1 / l1);
+        // add to total gradient with weight t (also weight by edge length)
+        g += pow(1. - t, 1) * (g0 / l0 + g1 / l1);
     }
     g.normalize();
 }
