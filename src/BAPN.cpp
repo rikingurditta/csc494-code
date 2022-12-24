@@ -105,40 +105,6 @@ barrier_potential(const Eigen::MatrixXi &E, const Eigen::VectorXd &x,
     return func.eval_with_hessian_proj(x);
 }
 
-double mesh_intersection_energy(const Eigen::VectorXd &x0, const Eigen::MatrixXi &E0,
-                                const Eigen::VectorXd &x1, const Eigen::MatrixXi &E1) {
-    for (int e0 = 0; e0 < E0.rows(); e0++) {
-        Eigen::Vector2d a0 = x0.segment<2>(E0(e0, 0) * 2);
-        Eigen::Vector2d d0 = x0.segment<2>(E0(e0, 1) * 2) - a0;
-        for (int e1 = 0; e1 < E1.rows(); e1++) {
-            Eigen::Vector2d a1 = x1.segment<2>(E1(e1, 0) * 2);
-            Eigen::Vector2d d1 = x1.segment<2>(E1(e1, 1) * 2) - a1;
-            Eigen::Matrix2d A;
-            A.col(0) = d0;
-            A.col(1) = -d1;
-            if (A.determinant() == 0) {
-                continue;
-                // TODO: check if edges overlap
-            }
-            Eigen::Vector2d st = A.inverse() * (a1 - a0);
-            double s = st(0), t = st(1);
-            if (0 <= s and s <= 1 and 0 <= t and t <= 1)
-                return std::numeric_limits<double>::infinity();
-        }
-    }
-    return 0;
-}
-
-double winding_number_energy(const Eigen::VectorXd &xc, const Eigen::MatrixXi &Ec,
-                             const Eigen::VectorXd &xf, const Eigen::MatrixXi &Ef) {
-    Eigen::MatrixXd Vc = unflatten(xc, 2);
-    for (int v = 0; v < xf.rows() / 2; v++) {
-        if (query_winding_number(Vc, Ec, xf.segment<2>(v * 2)) == 0)
-            return std::numeric_limits<double>::infinity();
-    }
-    return 0;
-}
-
 // x = stack(flatten(Vc), flatten(Vf))
 std::tuple<double, Eigen::VectorXd, Eigen::SparseMatrix<double>>
 total_energy(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec, const Eigen::MatrixXd &Vf,
@@ -178,17 +144,20 @@ total_energy(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec, const Eigen::
         list.emplace_back(i, i, 1.);
     H_disp.setFromTriplets(list.begin(), list.end());
 
+    double E_fine_inside_coarse = query_mesh_inside(unflatten(xc, 2), Ec, unflatten(xf, 2), Ef)
+                                  ? 0 : std::numeric_limits<double>::infinity();
+
+    // energy weights
     double c_cages = 10;
     double c_reinflate = 10000;
-    double c_barrier = 1;
+    double c_barrier = 10;
 
     return {c_cages * E_cages
             + c_reinflate * E_disp
             + c_barrier * (E_barrier_F_vs_C + E_barrier_C_vs_F + E_barrier_C_vs_C)
-            // following terms are not differentiable - only take values {0, inf}
+            // following term not differentiable - only takes values {0, inf}
             // only useful for line search, so don't need grad/hess
-            + mesh_intersection_energy(xc, Ec, xf, Ef)
-            + winding_number_energy(xc, Ec, xf, Ef),
+            + E_fine_inside_coarse,
             c_cages * g_cages
             + c_reinflate * g_disp
             + c_barrier * (g_barrier_F_vs_C + g_barrier_C_vs_F + g_barrier_C_vs_C),

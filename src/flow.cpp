@@ -6,8 +6,7 @@
 #include "helpers.h"
 
 void grad_unsigned_distance(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const Eigen::RowVector2d &p,
-                            Eigen::RowVector2d &g)
-{
+                            Eigen::RowVector2d &g) {
     Eigen::RowVector2d closest_point;
     closest_point_on_mesh(V, E, p, closest_point);
     g = (p - closest_point).normalized();
@@ -18,8 +17,7 @@ void grad_unsigned_distance(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, 
 void quadrature_grad_dist(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
                           const Eigen::RowVector2d &p, const Eigen::RowVector2d &p_e0, const Eigen::RowVector2d &p_e1,
                           int num_points,
-                          Eigen::RowVector2d &g)
-{
+                          Eigen::RowVector2d &g) {
     g = Eigen::RowVector2d::Zero();
     double l0 = (p - p_e0).norm();
     double l1 = (p - p_e1).norm();
@@ -41,26 +39,15 @@ void quadrature_grad_dist(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
     g.normalize();
 }
 
-bool
-query_mesh_inside(const Eigen::MatrixXd &V_outside, const Eigen::MatrixXi &E_outside, const Eigen::MatrixXd &V_inside) {
-    // TODO: this only checks if all vertices are inside, not if entire mesh is inside
-    for (int v = 0; v < V_inside.rows(); v++) {
-        if (!query_point_inside(V_outside, E_outside, V_inside.row(v))) {
-//            std::cout << V_inside.row(v) << "\n";
-            return false;
-        }
-    }
-    return true;
-}
 
 int flow(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec, const Eigen::MatrixXd &Vf, const Eigen::MatrixXi &Ef,
-         int max_num_meshes, std::vector<Eigen::MatrixXd> &Vf_flow, double h) {
+         int max_flow_steps, std::vector<Eigen::MatrixXd> &Vf_flow, double h) {
     int iteration = 0;
     Vf_flow.emplace_back(Vf);
     Eigen::MatrixXd V_curr = Vf;
     std::vector<std::vector<int>> A;
     igl::adjacency_list(Ef, A);
-    while (!query_mesh_inside(Vc, Ec, V_curr) && iteration < max_num_meshes) {
+    while (!query_mesh_inside(Vc, Ec, V_curr, Ef) && iteration < max_flow_steps) {
         // g = ∇ sdf
         Eigen::MatrixXd g = Eigen::MatrixXd::Zero(Vf.rows(), Vf.cols());
         for (int v = 0; v < V_curr.rows(); v++) {
