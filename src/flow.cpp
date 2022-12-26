@@ -1,6 +1,5 @@
 #include <iostream>
 #include "flow.h"
-#include "grad_sdf.h"
 #include "igl/adjacency_list.h"
 #include "closest_points.h"
 #include "helpers.h"
@@ -30,14 +29,14 @@ void quadrature_grad_dist(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
         grad_unsigned_distance(V, E, (1. - t) * p + t * p_e0, g0);
         grad_unsigned_distance(V, E, (1. - t) * p + t * p_e1, g1);
         // add to total gradient with weight t (also weight by edge length)
-        g += pow(1. - t, 1) * (g0 / l0 + g1 / l1);
+        g += pow(1. - t, 2) * (g0 / l0 + g1 / l1);
     }
     g.normalize();
 }
 
 
 int flow(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec, const Eigen::MatrixXd &Vf, const Eigen::MatrixXi &Ef,
-         int max_flow_steps, std::vector<Eigen::MatrixXd> &Vf_flow, double h) {
+         int max_flow_steps, std::vector<Eigen::MatrixXd> &Vf_flow, std::vector<Eigen::MatrixXd> &grads, double h) {
     int iteration = 0;
     Vf_flow.emplace_back(Vf);
     Eigen::MatrixXd V_curr = Vf;
@@ -61,6 +60,9 @@ int flow(const Eigen::MatrixXd &Vc, const Eigen::MatrixXi &Ec, const Eigen::Matr
         }
         Eigen::MatrixXd V_new = V_curr - h * g;
         Vf_flow.emplace_back(V_new);
+        Eigen::MatrixXd grad_temp(Vc.rows() + Vf.rows(), 2);
+        grad_temp << Eigen::MatrixXd::Zero(Vc.rows(), 2), g;
+        grads.emplace_back(grad_temp);
         V_curr = V_new;
         iteration++;
     }

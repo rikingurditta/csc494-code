@@ -19,9 +19,8 @@ int query_winding_number(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E,
 
 bool query_point_inside(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const Eigen::Vector2d &p);
 
-bool
-query_mesh_inside(const Eigen::MatrixXd &V_outside, const Eigen::MatrixXi &E_outside,
-                  const Eigen::MatrixXd &V_inside, const Eigen::MatrixXi &E_inside);
+bool query_mesh_inside(const Eigen::MatrixXd &V_outside, const Eigen::MatrixXi &E_outside,
+                       const Eigen::MatrixXd &V_inside, const Eigen::MatrixXi &E_inside);
 
 bool query_meshes_intersect(const Eigen::VectorXd &x0, const Eigen::MatrixXi &E0,
                             const Eigen::VectorXd &x1, const Eigen::MatrixXi &E1);

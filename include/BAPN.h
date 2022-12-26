@@ -3,7 +3,6 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include "types.h"
 
 // TODO: use TinyAD for these
 
@@ -41,8 +40,6 @@ barrier_potential(const Eigen::MatrixXi &E, const Eigen::VectorXd &x,
 // V, E = current mesh
 // x_query = vertex positions for which the nested_cages_energy is being calculated
 // returns energy meant to be minimized for nested cages (e.g. volume nested_cages_energy in a typical case)
-//ADouble nested_cages_energy(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, const VectorXAD &x_query);
-
 std::tuple<double, Eigen::VectorXd, Eigen::SparseMatrix<double>>
 nested_cages_energy(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_query, int index_offset);
 

@@ -64,12 +64,9 @@ bool query_point_inside(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, cons
 
 bool query_mesh_inside(const Eigen::MatrixXd &V_outside, const Eigen::MatrixXi &E_outside,
                        const Eigen::MatrixXd &V_inside, const Eigen::MatrixXi &E_inside) {
-    for (int v = 0; v < V_inside.rows(); v++) {
-        if (!query_point_inside(V_outside, E_outside, V_inside.row(v))) {
-//            std::cout << V_inside.row(v) << "\n";
+    for (int v = 0; v < V_inside.rows(); v++)
+        if (!query_point_inside(V_outside, E_outside, V_inside.row(v)))
             return false;
-        }
-    }
     return !query_meshes_intersect(flatten(V_outside), E_outside, flatten(V_inside), E_inside);
 }
 

@@ -57,7 +57,7 @@ nested_cages_energy(const Eigen::MatrixXi &E, const Eigen::VectorXd &x_query, in
         Eigen::Vector2<T> v1 = element.variables(E(e, 1));
 
         // negating because test meshes are cw instead of ccw
-        return -0.5 * (v1.y() - v0.y()) * (v0.x() + v1.x());
+        return 0.5 * (v1.y() - v0.y()) * (v0.x() + v1.x());
     });
     auto [Energy, g, H] = func.eval_with_hessian_proj(x_query);
     if (Energy < 0)
